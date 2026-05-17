@@ -8,6 +8,14 @@ framework:
     #esi: true
     #fragments: true
 
+when@prod:
+    framework:
+        # Required behind Railway / reverse proxies
+        trusted_proxies: 'private_ranges'
+        trusted_headers: ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-host']
+        http_method_override: false
+        handle_all_throwables: true
+
 when@test:
     framework:
         test: true

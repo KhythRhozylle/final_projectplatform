@@ -104,7 +104,124 @@ Keeps sensitive information out of the codebase and allows flexible configuratio
 - Verify database connection settings in `.env`
 - Use production mode for Symfony in deployment
 - Confirm Nginx is correctly routing requests to PHP-FPM
-- Test Docker Compose setup locally before deploying
+- Test Docker Compose setup locally before deployment
+
+---
+
+## Local Development Setup
+
+### Prerequisites
+- Docker and Docker Compose installed
+- Git
+
+### Steps
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd platform-deployment-final-project
+```
+
+2. Configure environment variables:
+```bash
+cp .env.production .env.local
+# Edit .env.local with your local development values
+```
+
+3. Build and start the containers:
+```bash
+docker-compose up --build
+```
+
+4. Access the application at `http://localhost`
+
+5. Run database migrations:
+```bash
+docker-compose exec php php bin/console doctrine:migrations:migrate
+```
+
+6. Stop the containers:
+```bash
+docker-compose down
+```
+
+---
+
+## Railway Deployment
+
+### Prerequisites
+- Railway account
+- GitHub repository with the project
+
+### Steps
+
+1. **Prepare your repository**
+   - Push all files to GitHub
+   - Ensure `.env.production` is NOT committed (add to `.gitignore`)
+   - Commit all Docker configuration files
+
+2. **Create Railway project**
+   - Go to [railway.app](https://railway.app)
+   - Click "New Project" → "Deploy from GitHub repo"
+   - Select your repository
+
+3. **Configure services**
+   
+   Railway will automatically detect your `docker-compose.yml` and create services. You may need to adjust the configuration:
+
+   **For the PHP service:**
+   - Set root directory to `.`
+   - Use the Dockerfile
+   - Environment variables:
+     - `APP_ENV=prod`
+     - `APP_SECRET=<generate-a-secure-secret>`
+     - `DATABASE_URL=mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQLHOST}:${MYSQLPORT}/${MYSQLDATABASE}?serverVersion=8.0.32&charset=utf8mb4`
+
+   **For the MySQL service:**
+   - Railway provides a managed MySQL service
+   - Set environment variables:
+     - `MYSQL_ROOT_PASSWORD=<secure-password>`
+     - `MYSQL_USER=<username>`
+     - `MYSQL_PASSWORD=<secure-password>`
+     - `MYSQL_DATABASE=<database-name>`
+
+   **For the Nginx service:**
+   - Use the provided nginx configuration
+   - Expose port 80
+
+4. **Set environment variables in Railway**
+   - Go to each service's "Variables" tab
+   - Add the required environment variables from `.env.production`
+   - Railway will inject these into your containers
+
+5. **Deploy**
+   - Railway will automatically deploy when you push to GitHub
+   - Monitor the deployment logs in the Railway dashboard
+
+6. **Access your application**
+   - Railway will provide a public URL for your application
+   - The URL will be in the format: `https://<project-name>.railway.app`
+
+### Railway-Specific Configuration
+
+Create a `railway.yaml` file in your project root for Railway-specific settings:
+
+```yaml
+build:
+  builder: dockerfile
+  dockerfilePath: ./Dockerfile
+
+deploy:
+  startCommand: php-fpm
+  healthcheckPath: /
+```
+
+### Troubleshooting Railway Deployment
+
+- **Database connection issues**: Ensure the `DATABASE_URL` uses Railway's provided database host
+- **Permission errors**: The entrypoint script handles permissions, but verify the `var/` directory is writable
+- **Cache issues**: Clear cache by redeploying or using the Railway console
+- **Nginx routing**: Check that Nginx is correctly forwarding to the PHP service
 
 ---
 
@@ -113,6 +230,12 @@ Keeps sensitive information out of the codebase and allows flexible configuratio
 Recommended platform:
 
 - Railway
+
+Alternative platforms:
+- AWS ECS
+- Google Cloud Run
+- Azure Container Instances
+- DigitalOcean App Platform
 
 ## Notes
 
