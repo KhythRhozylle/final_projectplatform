@@ -8,6 +8,8 @@ services:
       - "8000:80"
     volumes:
       - app-var:/app/var
+      # Mount templates so local edits show without rebuilding the image
+      - ./templates:/app/templates:ro
     environment:
       APP_ENV: prod
       APP_DEBUG: "0"
@@ -25,43 +27,43 @@ services:
       retries: 3
       start_period: 30s
 
-  db:
-    image: mysql:8.0
-    container_name: ovalo-db
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3307:3306"
-    volumes:
-      - platform-db-data:/var/lib/mysql
-    networks:
-      - platform-network
-    healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+#   db:
+#     image: mysql:8.0
+#     container_name: ovalo-db
+#     environment:
+#       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+#       MYSQL_DATABASE: ${MYSQL_DATABASE}
+#       MYSQL_USER: ${MYSQL_USER}
+#       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+#     ports:
+#       - "3307:3306"
+#     volumes:
+#       - platform-db-data:/var/lib/mysql
+#     networks:
+#       - platform-network
+#     healthcheck:
+#       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+#       start_period: 15s
 
-  adminer:
-    image: adminer:latest
-    container_name: ovalo-adminer
-    ports:
-      - "3310:8080"
-    environment:
-      ADMINER_DEFAULT_SERVER: db
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - platform-network
+#   adminer:
+#     image: adminer:latest
+#     container_name: ovalo-adminer
+#     ports:
+#       - "3310:8080"
+#     environment:
+#       ADMINER_DEFAULT_SERVER: db
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     networks:
+#       - platform-network
 
-volumes:
-  platform-db-data:
-  app-var:
+# volumes:
+#   platform-db-data:
+#   app-var:
 
 networks:
   platform-network:

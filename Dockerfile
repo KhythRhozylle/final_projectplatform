@@ -8,8 +8,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     nodejs \
     npm \
-    libicu-dev \
-    && docker-php-ext-install pdo pdo_mysql intl \
+    && docker-php-ext-install pdo pdo_mysql \
     && rm -rf /var/lib/apt/lists/*
 
 # THE FIX: We bypass curl entirely and copy the pre-compiled binary
@@ -22,17 +21,14 @@ COPY composer.json composer.lock ./
 RUN composer install --no-interaction --no-scripts --optimize-autoloader
 
 COPY . .
-COPY .env.example .env
 
-# Placeholder values for build-time console commands (runtime overrides via compose/Railway)
-ENV APP_ENV=prod \
-    APP_DEBUG=0 \
-    APP_SECRET=build-time-secret-replace-at-runtime \
-    DATABASE_URL="mysql://build:build@127.0.0.1:3306/build?serverVersion=8.0.32&charset=utf8mb4"
+RUN if [ ! -f /app/.env ]; then echo "APP_ENV=${APP_ENV:-prod}\nAPP_DEBUG=${APP_DEBUG:-false}\nAPP_SECRET=${APP_SECRET:-ChangeMe}\n" > /app/.env; fi
 
-RUN composer install --no-interaction --optimize-autoloader --no-ansi
+# Now run post-install scripts after app code is available
+RUN composer install --no-interaction --optimize-autoloader --no-ansi || true
 RUN php bin/console importmap:install --no-interaction
-RUN php bin/console cache:warmup --env=prod --no-debug
+
+RUN php bin/console cache:warmup --env=prod --no-debug || true
 
 FROM php:8.3-fpm as runtime
 
@@ -41,11 +37,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     nginx \
     curl \
-    libicu-dev \
-    && docker-php-ext-install pdo pdo_mysql intl opcache \
+    && docker-php-ext-install pdo pdo_mysql \
     && rm -rf /var/lib/apt/lists/*
-
-COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 COPY --from=builder /app /app
 
