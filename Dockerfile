@@ -8,11 +8,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     nodejs \
     npm \
-    nginx \
     && docker-php-ext-install pdo pdo_mysql \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
@@ -22,22 +21,13 @@ RUN composer install --no-interaction --no-scripts --optimize-autoloader
 
 COPY . .
 
-RUN if [ ! -f /app/.env ]; then \
-    echo "APP_ENV=prod\nAPP_DEBUG=0\nAPP_SECRET=ChangeMe\n" > /app/.env; \
-    fi
+RUN if [ ! -f /app/.env ]; then echo "APP_ENV=${APP_ENV:-prod}\nAPP_DEBUG=${APP_DEBUG:-false}\nAPP_SECRET=${APP_SECRET:-ChangeMe}\n" > /app/.env; fi
 
-RUN composer install --no-interaction --optimize-autoloader --no-ansi
+# Now run post-install scripts after app code is available
+RUN composer install --no-interaction --optimize-autoloader --no-ansi || true
+RUN php bin/console importmap:install --no-interaction
 
-RUN php bin/console importmap:install --no-interaction || true
-
-RUN mkdir -p var/cache var/log
-
-# IMPORTANT FIX
-RUN chmod -R 777 var
-
-RUN php bin/console cache:clear --env=prod || true
-RUN php bin/console cache:warmup --env=prod || true
-
+RUN php bin/console cache:warmup --env=prod --no-debug || true
 
 FROM php:8.3-fpm as runtime
 
@@ -51,21 +41,17 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=builder /app /app
 
-# IMPORTANT FIX
-RUN mkdir -p /app/var/cache /app/var/log \
-    && chmod -R 777 /app/var \
-    && chown -R www-data:www-data /app
+RUN mkdir -p /app/var && \
+    chown -R www-data:www-data /app && \
+    chmod -R 755 /app && \
+    chmod -R 775 /app/var
 
 COPY nginx-main.conf /etc/nginx/nginx.conf
 
-RUN rm -rf /etc/nginx/conf.d/* \
-    /etc/nginx/sites-enabled \
-    /etc/nginx/sites-available
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN rm -rf /etc/nginx/conf.d/* /etc/nginx/sites-enabled /etc/nginx/sites-available
+COPY nginx.conf /etc/nginx/conf.d/symfony.conf
 
 COPY entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 \
